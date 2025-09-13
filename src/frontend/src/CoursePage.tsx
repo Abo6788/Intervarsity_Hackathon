@@ -14,37 +14,41 @@ function randomDateWithin(daysBack: number) {
   const now = new Date();
   const past = new Date(now);
   past.setDate(now.getDate() - randomInt(0, daysBack));
-  return past.toISOString().slice(0, 10);
-}
-function makeRows(): Row[] {
-  const tasks = ["Prac 1","Prac 2","Prac 3","Prac 4","Prac 5","Test 1","Test 2"];
-  return tasks.map((task) => {
-    let mark: number;
-    const r = Math.random();
-    if (r < 0.1) mark = randomInt(86, 100);
-    else if (r > 0.9) mark = randomInt(35, 54);
-    else mark = randomInt(55, 85);
-
-    return { task, mark, dateSubmitted: randomDateWithin(90) };
-  });
+  const d = past.toISOString().split("T")[0];
+  return d;
 }
 
-function getStatus(avg: number) {
-  if (avg < 50) return { label: "At risk of failure", type: "at-risk" };
-  if (avg < 65) return { label: "Possible failure", type: "possible" };
-  return { label: "Likely to pass", type: "likely" };
+function generateRows(): Row[] {
+  const tasks = [
+    "Lab 1",
+    "Lab 2",
+    "Lab 3",
+    "Quiz 1",
+    "Quiz 2",
+    "Assignment 1",
+    "Assignment 2",
+    "Project Milestone",
+  ];
+  return tasks.map((t) => ({
+    task: t,
+    dateSubmitted: randomDateWithin(40),
+    mark: randomInt(50, 95),
+  }));
 }
 
-export default function CoursePage() {
-  const rows = useMemo(() => makeRows(), []);
+export default function CoursePage({ studentId }: { studentId: string }) {
+  const rows = useMemo(() => generateRows(), []);
   const total = rows.length;
+  const average = Math.round(
+    rows.reduce((s, r) => s + r.mark, 0) / Math.max(total, 1)
+  );
 
-  const average =
-    Math.round((rows.reduce((sum, r) => sum + r.mark, 0) / total) * 10) / 10;
+  const statusType =
+    average >= 75 ? "good" : average >= 60 ? "ok" : average >= 50 ? "warn" : "bad";
+  const statusLabel =
+    average >= 75 ? "Excellent" : average >= 60 ? "On track" : average >= 50 ? "At risk" : "Failing";
 
-  const { label: statusLabel, type: statusType } = getStatus(average);
-
-  const progressPct = 100; // assume all tasks submitted
+  const progressPct = Math.round((rows.length / total) * 100);
 
   return (
     <div className="course-page">
@@ -52,7 +56,7 @@ export default function CoursePage() {
         <header className="course-header">
           <div className="header-left">
             <h1 className="course-code">EEE3095S</h1>
-            <p className="student-id">EBRZEE006</p>
+            <p className="student-id">{studentId}</p>
           </div>
           <div className="header-right">
             <div className="avg-card">
@@ -63,43 +67,39 @@ export default function CoursePage() {
           </div>
         </header>
 
-        <table className="marks-table">
-          <colgroup>
-            <col style={{ width: "30%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "35%" }} />
-            <col style={{ width: "20%" }} />
-          </colgroup>
+        <div className="toolbar">
+          <input className="search-input" placeholder="Search assessments…" />
+          <button className="btn">Export CSV</button>
+        </div>
 
-          <thead>
-            <tr>
-              <th>Task</th>
-              <th>Mark</th>
-              <th>Date Submitted</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.task}>
-                <td>{r.task}</td>
-                <td className="num">{r.mark}%</td>
-                <td>{r.dateSubmitted}</td>
-                <td>
-                  <button className="btn">Insights</button>
-                </td>
+        <div className="table-wrapper">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Date Submitted</th>
+                <th>Mark</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.task}</td>
+                  <td>{r.dateSubmitted}</td>
+                  <td>
+                    <span className={`badge ${r.mark >= 75 ? "good" : r.mark >= 60 ? "ok" : r.mark >= 50 ? "warn" : "bad"}`}>
+                      {r.mark}%
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        <div className="progress-wrapper">
+        <div className="progress">
           <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${progressPct}%` }}
-            />
+            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <div className="progress-caption">
             {total}/{total} submitted • {progressPct}%
