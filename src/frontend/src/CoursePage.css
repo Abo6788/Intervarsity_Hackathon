@@ -1,3 +1,4 @@
+/* Page + container */
 .course-page {
   width: 100%;
   min-height: 100vh;
@@ -71,6 +72,49 @@
 .marks-table thead th { background: #f8fafc; font-weight: 700; }
 .marks-table td.num { text-align: right; }
 
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  border: 1px solid transparent;
+  background: #f1f5f9;
+}
+.badge-emoji { font-size: 16px; line-height: 1; }
+.badge-text { line-height: 1; }
+
+/* Color theming per tier */
+.badge.bronze {
+  background: #f5ebe1;                 /* warm bronze tint */
+  border-color: #e7d6c3;
+  color: #7a4b1d;
+}
+.badge.silver {
+  background: #eef1f5;
+  border-color: #d8dee6;
+  color: #3b485a;
+}
+.badge.gold {
+  background: #fff5cc;
+  border-color: #f2de8a;
+  color: #7a5b00;
+}
+.badge.platinum {
+  background: #edf7ff;
+  border-color: #cfe7fb;
+  color: #2a4560;
+}
+.badge.diamond {
+  background: #e8fbf7;
+  border-color: #bff1e6;
+  color: #0b7661;
+}
+
 /* Button */
 .btn {
   padding: 8px 12px;
@@ -94,12 +138,11 @@
   border-radius: 999px;
   overflow: hidden;
 }
-.progress-fill {
-  height: 100%;
-  background: #22c55e;
-}
-.progress-caption {
-  margin-top: 8px;
-  font-size: 13px;
-  color: #64748b;
+.progress-fill { height: 100%; background: #22c55e; }
+.progress-caption { margin-top: 8px; font-size: 13px; color: #64748b; }
+
+/* Responsive */
+@media (max-width: 800px) {
+  .course-code { font-size: 32px; }
+  .marks-table th, .marks-table td { padding: 10px 8px; height: 48px; }
 }
