@@ -1,0 +1,105 @@
+.course-page {
+  width: 100%;
+  min-height: 100vh;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 48px 24px;
+}
+.course-container {
+  width: min(100%, 1200px);
+  margin: 0 auto;
+}
+
+/* Header with average + status */
+.course-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.course-code { margin: 0; font-size: 40px; font-weight: 800; }
+.student-id { margin: 6px 0 0; color: #64748b; font-size: 14px; }
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+.avg-card {
+  min-width: 180px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: right;
+}
+.avg-label { font-size: 12px; color: #64748b; font-weight: 700; }
+.avg-value { font-size: 28px; font-weight: 800; margin-top: 2px; }
+
+/* Overall status pill */
+.status.overall {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+.status.at-risk { background: #ef4444; }   /* red */
+.status.possible { background: #f97316; }  /* orange */
+.status.likely { background: #22c55e; }    /* green */
+
+/* Table */
+.marks-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 28px;
+  table-layout: fixed;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 15px;
+}
+.marks-table th,
+.marks-table td {
+  border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  padding: 14px 12px;
+  text-align: left;
+  vertical-align: middle;
+  height: 56px;
+}
+.marks-table th:last-child,
+.marks-table td:last-child { border-right: none; }
+.marks-table thead th { background: #f8fafc; font-weight: 700; }
+.marks-table td.num { text-align: right; }
+
+/* Button */
+.btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform .05s ease-in-out, opacity .15s;
+}
+.btn:hover { opacity: .9; }
+.btn:active { transform: translateY(1px); }
+
+/* Progress bar */
+.progress-wrapper { width: 100%; }
+.progress-bar {
+  width: 100%;
+  height: 14px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: #22c55e;
+}
+.progress-caption {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
