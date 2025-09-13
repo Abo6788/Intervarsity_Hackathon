@@ -7,10 +7,15 @@
 ## ⚒️ Team Name
 ``` c
 // TODO: Fill-in the name of your team.
+Cyber Solutions
 ```
 
 ## 👥 Members
-| Name     | Role                | Institution           | Discord Handle | Email |
+| Name     | Role                | Institution           | Discord 
+Abongile Njokwana Backend Developer UCT abongile0229_99675 abo.njoks@gmail.com 
+Zeeshaan Ebrahim Frontend Developer UCT zee061923 zeeshaan11@icloud.com
+
+Handle | Email |
 |----------|---------------------|-----------------------| -------------------|-------------|
 | **Name 1**   | Backend Developer   | University of Cape Town | name1 | <email1@gmail.com> |
 | **Name 2**   | Frontend Developer  | University of the Witwatersrand | name2 | <email2@gmail.com> |
@@ -21,6 +26,7 @@
 ``` c
 // TODO: Fill-in the name of the institution your
 // team is competing under.
+University of Cape Town
 ```
 
 ## 📧 Other Contact Info
