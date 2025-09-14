@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "./CoursePage.css";
 import type { AssessmentRow } from "./api";
-import { getStudentAssessments, getStudentSummary, getAssessmentAnalytics } from "./api";
+import {
+  getStudentAssessments,
+  getStudentSummary,
+  getAssessmentAnalytics,
+} from "./api";
 
 type Props = { studentId: string };
 
@@ -14,11 +18,11 @@ function overallStatus(avg: number) {
 /** Map a numeric mark to a badge name + emoji + class */
 function badgeFor(mark: number) {
   if (mark < 50) return null;
-  if (mark < 60) return { name: "Bronze",   emoji: "🥉", className: "badge bronze" };
-  if (mark < 70) return { name: "Silver",   emoji: "🥈", className: "badge silver" };
-  if (mark < 80) return { name: "Gold",     emoji: "🥇", className: "badge gold" };
-  if (mark < 90) return { name: "Platinum", emoji: "⭐",  className: "badge platinum" };
-  return            { name: "Diamond",  emoji: "💎", className: "badge diamond" };
+  if (mark < 60) return { name: "Bronze", emoji: "🥉", className: "badge bronze" };
+  if (mark < 70) return { name: "Silver", emoji: "🥈", className: "badge silver" };
+  if (mark < 80) return { name: "Gold", emoji: "🥇", className: "badge gold" };
+  if (mark < 90) return { name: "Platinum", emoji: "⭐", className: "badge platinum" };
+  return { name: "Diamond", emoji: "💎", className: "badge diamond" };
 }
 
 type Analytics = {
@@ -34,6 +38,8 @@ type Analytics = {
 export default function CoursePage({ studentId }: Props) {
   const [rows, setRows] = useState<AssessmentRow[]>([]);
   const [avg, setAvg] = useState<number>(0);
+  const [predScore, setPredScore] = useState<number | null>(null);
+  const [predId, setPredId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -57,14 +63,24 @@ export default function CoursePage({ studentId }: Props) {
         if (!cancelled) {
           setRows(assessments);
           setAvg(Number.isFinite(summary.average) ? summary.average : 0);
+          setPredScore(
+            summary.predicted_next?.score != null ? Number(summary.predicted_next.score) : null
+          );
+          setPredId(
+            summary.predicted_next?.id_assessment != null
+              ? Number(summary.predicted_next.id_assessment)
+              : null
+          );
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) setErr("Failed to load student data.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [studentId]);
 
   const { label: statusLabel, type: statusType } = overallStatus(avg);
@@ -97,6 +113,10 @@ export default function CoursePage({ studentId }: Props) {
                 <div className="avg-label">Overall Average</div>
                 <div className="avg-value">—</div>
               </div>
+              <div className="avg-card">
+                <div className="avg-label">Predicted Next</div>
+                <div className="avg-value">—</div>
+              </div>
               <div className="status overall possible">Loading…</div>
             </div>
           </header>
@@ -120,6 +140,10 @@ export default function CoursePage({ studentId }: Props) {
                 <div className="avg-label">Overall Average</div>
                 <div className="avg-value">—</div>
               </div>
+              <div className="avg-card">
+                <div className="avg-label">Predicted Next</div>
+                <div className="avg-value">—</div>
+              </div>
               <div className="status overall at-risk">Error</div>
             </div>
           </header>
@@ -128,6 +152,8 @@ export default function CoursePage({ studentId }: Props) {
       </div>
     );
   }
+
+  const overallBadge = badgeFor(avg);
 
   return (
     <div className="course-page">
@@ -138,10 +164,29 @@ export default function CoursePage({ studentId }: Props) {
             <p className="student-id">{studentId}</p>
           </div>
           <div className="header-right">
+            {/* Overall Average + Overall Badge */}
             <div className="avg-card">
               <div className="avg-label">Overall Average</div>
-              <div className="avg-value">{avg}%</div>
+              <div className="avg-value">
+                {avg}%{" "}
+                {overallBadge ? (
+                  <span className={overallBadge.className} style={{ marginLeft: 8 }}>
+                    <span className="badge-emoji" aria-hidden>{overallBadge.emoji}</span>
+                    <span className="badge-text">{overallBadge.name}</span>
+                  </span>
+                ) : null}
+              </div>
             </div>
+
+            {/* Predicted Next card */}
+            <div className="avg-card" title={predId ? `Assessment ${predId}` : ""}>
+              <div className="avg-label">Predicted Next</div>
+              <div className="avg-value">
+                {predScore != null ? `${predScore}%` : "—"}
+              </div>
+            </div>
+
+            {/* Status pill */}
             <div className={`status overall ${statusType}`}>{statusLabel}</div>
           </div>
         </header>
@@ -174,7 +219,9 @@ export default function CoursePage({ studentId }: Props) {
                   <td className="num">{r.score}%</td>
                   <td>{r.date_submitted}</td>
                   <td>
-                    <button className="btn" onClick={() => openInsights(r)}>Insights</button>
+                    <button className="btn" onClick={() => openInsights(r)}>
+                      Insights
+                    </button>
                   </td>
                   <td>
                     {b ? (
@@ -182,7 +229,9 @@ export default function CoursePage({ studentId }: Props) {
                         <span className="badge-emoji" aria-hidden>{b.emoji}</span>
                         <span className="badge-text">{b.name}</span>
                       </span>
-                    ) : "—"}
+                    ) : (
+                      "—"
+                    )}
                   </td>
                 </tr>
               );
@@ -200,7 +249,7 @@ export default function CoursePage({ studentId }: Props) {
         </div>
       </div>
 
-      {/* -------- Modal for Insights -------- */}
+      {/* -------- Insights Modal -------- */}
       {showModal && (
         <div
           role="dialog"
@@ -213,27 +262,35 @@ export default function CoursePage({ studentId }: Props) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "48px 16px",
+            padding: "48px 16px", // top/bottom breathing room
             zIndex: 999,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "min(900px, 96vw)",   // wider modal
-              maxHeight: "90vh",           // keeps it from overflowing screen vertically
-              overflowY: "auto",           // scroll if content taller than screen
+              width: "min(900px, 96vw)",
+              maxHeight: "90vh",
+              overflowY: "auto",
               background: "#fff",
               border: "1px solid #e5e7eb",
               borderRadius: 12,
-              padding: 24,                 // a little more breathing space
-              //marginTop: 32,
+              padding: 24,
               boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{modalTitle}</h2>
-              <button className="btn" onClick={() => setShowModal(false)}>Close</button>
+              <button className="btn" onClick={() => setShowModal(false)}>
+                Close
+              </button>
             </div>
 
             {fetchingAnalytics && <p>Loading analytics…</p>}
@@ -241,7 +298,6 @@ export default function CoursePage({ studentId }: Props) {
 
             {analytics && (
               <>
-                {/* Simple bar chart (CSS) */}
                 <Histogram
                   bins={analytics.bins}
                   counts={analytics.counts}
@@ -249,8 +305,8 @@ export default function CoursePage({ studentId }: Props) {
                 />
 
                 <div style={{ marginTop: 12, fontSize: 14, color: "#0f172a" }}>
-                  <strong>Student score:</strong> {analytics.student_score}% &nbsp;|&nbsp; 
-                  <strong>Percentile:</strong> {analytics.percentile} &nbsp;|&nbsp; 
+                  <strong>Student score:</strong> {analytics.student_score}% &nbsp;|&nbsp;
+                  <strong>Percentile:</strong> {analytics.percentile} &nbsp;|&nbsp;
                   <strong>Status:</strong> {analytics.status}
                   {analytics.position_in_status && analytics.group_size_in_status ? (
                     <>
@@ -285,22 +341,40 @@ function Histogram({
     const left = bins[i];
     const right = bins[i + 1];
     if (i === counts.length - 1) {
-      // include right edge for last bin
-      if (studentScore >= left && studentScore <= right) { idx = i; break; }
+      if (studentScore >= left && studentScore <= right) {
+        idx = i;
+        break;
+      }
     }
-    if (studentScore >= left && studentScore < right) { idx = i; break; }
+    if (studentScore >= left && studentScore < right) {
+      idx = i;
+      break;
+    }
   }
 
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 180, padding: "8px 6px", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 6,
+          height: 200,
+          padding: "12px 8px",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+        }}
+      >
         {counts.map((c, i) => {
-          const h = Math.round((c / max) * 160) + 8;
+          const h = Math.round((c / max) * 170) + 8;
           const isStudentBin = i === idx;
           return (
-            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <div
+              key={i}
+              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
+              title={`${bins[i]}–${bins[i + 1]}: ${c}`}
+            >
               <div
-                title={`${bins[i]}–${bins[i + 1]}: ${c}`}
                 style={{
                   width: "100%",
                   height: h,
