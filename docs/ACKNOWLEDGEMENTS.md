@@ -1,9 +1,3 @@
-> *This document serves as a template for you to list all third-party repos, modules, libraries, frameworks and or datasets used and credit their authors.*
-
-> Please fill this out to give proper credit and help judges understand external dependencies.
-
-> List **only the external resources you used directly**. Do **not** include system libraries or standard runtimes (e.g., Python VCRuntime, Java SDK). 
-
 # Acknowledgements
 
 This document lists all **third-party repositories, modules, libraries, frameworks, APIs, and datasets** used in this project.  
@@ -11,22 +5,29 @@ This document lists all **third-party repositories, modules, libraries, framewor
 ---
 
 ## 📦 Libraries, Frameworks & Submodules
-| Name                 | Link / Repo                                           | Author(s)       | Usage                  |
-|----------------------|-------------------------------------------------------|-----------------|------------------------|
-| IntricatePointers    | https://github.com/DnA-IntRicate/IntricatePointers    | Adam Foflonker  | Memory management      |
-| fast_obj             | https://github.com/thisistherk/fast_obj               | Richard Knight  | Parsing OBJ files      |
+|| Name                | Link / Repo                                                                           | Author(s)       |Usage                                        |
+| ------------------| ---------------------------------------------------------------- | ---------------------------- | --------------------------------------------- |
+| **FastAPI**       | [https://fastapi.tiangolo.com](https://fastapi.tiangolo.com)  | Sebastián Ramírez            | Backend web framework for REST API            |
+| **Uvicorn**       | [https://www.uvicorn.org](https://www.uvicorn.org)             | Encode OSS                   | ASGI server for running FastAPI backend       |
+| **Pandas**        | [https://pandas.pydata.org](https://pandas.pydata.org)        | Pandas Dev Team              | Data manipulation and analysis of CSV files   |
+| **NumPy**        | [https://numpy.org](https://numpy.org)                                | NumPy Developers             | Numerical computations and array handling     |
+| **Scikit-learn** | [https://scikit-learn.org](https://scikit-learn.org)                    | Scikit-learn Developers      | Linear regression model for score prediction  |
+| **SciPy**           | [https://scipy.org](https://scipy.org)                           | SciPy Community              | Percentile calculations for analytics         |
+| **Matplotlib**  | [https://matplotlib.org](https://matplotlib.org)                   | Matplotlib Developers        | Histogram plotting for assessment analytics   |
+| **React**           | [https://react.dev](https://react.dev)                                   | Meta / Open Source Community | Frontend UI framework                         |
+| **Vite**             | [https://vitejs.dev](https://vitejs.dev)                               | Evan You & Vite Contributors | Frontend build tool and dev server            |
+| **TypeScript**  | [https://www.typescriptlang.org](https://www.typescriptlang.org) | Microsoft                    | Strongly typed frontend development           |
+
 
 ---
 
 ## 🌐 APIs & Services
-| Name          | Link / Docs                        | Author(s)      | Usage                             |
-|---------------|------------------------------------|----------------|-----------------------------------|
-| OpenWeather   | https://openweathermap.org/api     | Open Weather   | Fetching weather data             |
-| Stripe        | https://stripe.com/docs/api        | Stripe         | Payment handling                  |
-
+| Name          | Link / Docs                                   | Author(s)      | Usage                             |
+|---------------|------------------------------------|----------------|--------------------------------------------|
+None              | -                                                  | -                     | This project does not use external APIs |
 ---
 
 ## 📊 Datasets
 | Name          | Source                              | Usage                             |
 |---------------|-------------------------------------|-----------------------------------|
-| MNIST         | http://yann.lecun.com/exdb/mnist/   | Training/testing machine learning |
+| Kaggle         | https://www.kaggle.com/   | Training/testing machine learning |

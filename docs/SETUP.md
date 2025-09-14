@@ -1,10 +1,17 @@
-> *This document serves as a template for you to write **setup** instructions for your project.* 
-
-> Depending on the scale/complexity of your project, it may prove beneficial to have a **Python/Batch/Bash** script in the `scripts/` directory which *automatically sets-up* the project.
-
 # Setup Instructions
 
-Follow the steps below to set up and run the project. (Example)
+1. Clone the repository
+    -git clone https://github.com/Aboo6788/Intervarsity_Hackathon.git
+    -cd Intervarsity_Hackathon
+2. Start the backend
+    -cd backend
+    -pip install -r requirements.txt
+    -uvicorn backend:app --reload --port 8000
+3. Start the frontend
+    -cd frontend
+    -npm install
+    -npm run dev
+   (Frontend runs at: http://localhost:5173 (connected to the backend at http://localhost:8000/api))
 
 ---
 
@@ -13,23 +20,31 @@ Follow the steps below to set up and run the project. (Example)
 // TODO: List software, runtimes, frameworks, and or dependencies
 // along with instructions on how to set each up.
 ```
-- Example: Node.js v18+
-- Example: Python 3.10
-- Example: Docker
-
+-  Node.js v18+
+-  Python 3.10
+-  React
 ---
 
 ## ⚙️ Installation
 ``` bash
 # Clone the repository
-git clone <your-repo-url>
-cd <repo-name>
+git clone https://github.com/Abo6788/Intervarsity_Hackathon.git
+cd Intervarsity_Hackathon
 
 # Install dependencies
-<insert command here>
+pip install -r requirements.txt
+
 ```
 
 ## ▶️ Running the Project
 ``` bash
-<insert run command here> # Or an explanation on what to do
+# Start backend
+cd backend
+pip install -r requirements.txt
+uvicorn backend:app --reload --port 8000
+
+# In a new terminal, start frontend
+cd frontend
+npm install
+npm run dev
 ```
