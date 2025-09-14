@@ -1,49 +1,98 @@
-// Minimal API client the frontend will use.
-// Adjust BASE if your backend runs on a different origin/port.
-const BASE = "http://localhost:8000/api";
+// Minimal API client for the frontend.
+// Set VITE_API_BASE in .env if you need a different base.
+const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
+/* ------------------------- Types ------------------------- */
 export type AssessmentRow = {
   id_assessment: number;
-  task: string;           // backend can send, or we can derive e.g. "Assessment 1752"
-  date_submitted: string; // ISO date "YYYY-MM-DD"
-  score: number;          // 0..100
+  task: string;            // frontend label, fallback derived if backend returns null
+  date_submitted: string;  // e.g., "Day 42"
+  score: number;           // 0..100
 };
 
 export type StudentSummary = {
   studentId: string;
-  average: number;        // overall average for this student
+  average: number;
+  status: string;
+  predicted_next: {
+    id_assessment: number | null | undefined;
+    score: number | null | undefined;
+  };
 };
 
+export type AssessmentAnalytics = {
+  assessment_id: number;
+  bins: number[];         // edges
+  counts: number[];       // counts per bin
+  student_score: number;
+  percentile: number;
+  status: string;
+  position_in_status?: number | null;
+  group_size_in_status?: number | null;
+};
 
+/* ------------------------- Helpers ------------------------- */
+function normRow(r: any): AssessmentRow {
+  const id = Number(r.id_assessment);
+  const task =
+    typeof r.task === "string" && r.task.trim().length > 0
+      ? r.task
+      : `Assessment ${isFinite(id) ? id : ""}`.trim();
+  const ds =
+    typeof r.date_submitted === "string" && r.date_submitted.length > 0
+      ? r.date_submitted
+      : "";
+  const score = Number(r.score ?? 0);
+  return {
+    id_assessment: id,
+    task,
+    date_submitted: ds,
+    score: isFinite(score) ? score : 0,
+  };
+}
 
+/* ------------------------- Calls ------------------------- */
 export async function checkStudentExists(studentId: string): Promise<boolean> {
-  const res = await fetch(`${BASE}/students/${encodeURIComponent(studentId)}/exists`);
-  if (!res.ok) throw new Error("Failed to check student");
+  const url = `${BASE}/students/${encodeURIComponent(studentId)}/exists`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`exists: HTTP ${res.status} ${res.statusText} ${text ? "- " + text : ""}`);
+  }
   const data = await res.json();
   return Boolean(data.exists);
 }
 
 export async function getStudentAssessments(studentId: string): Promise<AssessmentRow[]> {
-  const res = await fetch(`${BASE}/students/${encodeURIComponent(studentId)}/assessments`);
-  if (!res.ok) throw new Error("Failed to load assessments");
+  const url = `${BASE}/students/${encodeURIComponent(studentId)}/assessments`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`assessments: HTTP ${res.status} ${res.statusText} ${text ? "- " + text : ""}`);
+  }
   const data = await res.json();
-  // Expected shape: { rows: AssessmentRow[] }
   const rows = Array.isArray(data.rows) ? data.rows : [];
-  // Fallback: if task missing, label by id_assessment
-  return rows.map((r: any) => ({
-    id_assessment: r.id_assessment,
-    task: r.task ?? `Assessment ${r.id_assessment}`,
-    date_submitted: (r.date_submitted ?? "").slice(0, 10),
-    score: Number(r.score ?? 0),
-  }));
+  return rows.map(normRow);
 }
 
 export async function getStudentSummary(studentId: string): Promise<StudentSummary> {
-  const res = await fetch(`${BASE}/students/${encodeURIComponent(studentId)}/summary`);
-  if (!res.ok) throw new Error("Failed to load summary");
-  const data = await res.json();
-  return {
-    studentId: String(data.studentId ?? studentId),
-    average: Number(data.average ?? 0),
-  };
+  const url = `${BASE}/students/${encodeURIComponent(studentId)}/summary`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`summary: HTTP ${res.status} ${res.statusText} ${text ? "- " + text : ""}`);
+  }
+  return (await res.json()) as StudentSummary;
+}
+
+export async function getAssessmentAnalytics(assessmentId: number, studentId: string): Promise<AssessmentAnalytics> {
+  const url = `${BASE}/assessments/${encodeURIComponent(assessmentId)}/analytics?student_id=${encodeURIComponent(
+    studentId
+  )}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`analytics: HTTP ${res.status} ${res.statusText} ${text ? "- " + text : ""}`);
+  }
+  return (await res.json()) as AssessmentAnalytics;
 }

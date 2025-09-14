@@ -5,18 +5,19 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sklearn.linear_model import LinearRegression
 
-# ----------------------------- Config -----------------------------
-# Adjust this if your frontend runs somewhere else
-FRONTEND_ORIGIN = "http://localhost:5173"
 
-# CSV locations: prefer relative paths (repo/assets), fallback to your absolute Windows paths
+# -------------------------------------------------
+# Config
+# -------------------------------------------------
+FRONTEND_ORIGIN = "http://localhost:5173"  # Vite dev
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
+# Prefer repo-relative CSVs; fall back to your absolute paths
 REL_STUDENT_ASSESSMENTS = ASSETS_DIR / "studentAssessment.csv"
 REL_STUDENT_REGISTRATION = ASSETS_DIR / "studentRegistration.csv"
 REL_STUDENT_INFO = ASSETS_DIR / "studentInfo.csv"
@@ -31,20 +32,20 @@ def _load_csv(preferred: Path, fallback: Path) -> pd.DataFrame:
         return pd.read_csv(preferred)
     if fallback.exists():
         return pd.read_csv(fallback)
-    raise FileNotFoundError(f"Could not find CSV at {preferred} or {fallback}")
+    raise FileNotFoundError(f"CSV not found at {preferred} or {fallback}")
 
 
-# ----------------------------- Data load -----------------------------
-# Load once on startup
+# -------------------------------------------------
+# Data load (once at startup)
+# -------------------------------------------------
 student_assessments: pd.DataFrame = _load_csv(REL_STUDENT_ASSESSMENTS, ABS_STUDENT_ASSESSMENTS)
 student_registration: pd.DataFrame = _load_csv(REL_STUDENT_REGISTRATION, ABS_STUDENT_REGISTRATION)
 student_info: pd.DataFrame = _load_csv(REL_STUDENT_INFO, ABS_STUDENT_INFO)
 
-# Normalize column names (defensive)
 for df in (student_assessments, student_registration, student_info):
     df.columns = [c.strip() for c in df.columns]
 
-# Merge module/presentation info (used in analytics later if needed)
+# Extra merged view (for analytics / status)
 merged_df = pd.merge(
     student_assessments,
     student_info[["id_student", "code_module", "code_presentation"]],
@@ -52,7 +53,10 @@ merged_df = pd.merge(
     how="left",
 )
 
-# ----------------------------- Domain logic -----------------------------
+
+# -------------------------------------------------
+# Domain helpers
+# -------------------------------------------------
 def assign_status(score: float) -> str:
     if 0 <= score < 50:
         return "-"
@@ -69,15 +73,17 @@ def assign_status(score: float) -> str:
     return "invalid"
 
 
-# ----------------------------- API schemas -----------------------------
+# -------------------------------------------------
+# API models
+# -------------------------------------------------
 class ExistsResponse(BaseModel):
     exists: bool
 
 
 class AssessmentRow(BaseModel):
     id_assessment: int
-    task: Optional[str] = None   # frontend can display "Assessment {id}" if None
-    date_submitted: Optional[str] = None  # YYYY-MM-DD
+    task: Optional[str] = None           # frontend can fall back to "Assessment {id}"
+    date_submitted: Optional[str] = None # OULAD: "Day N"
     score: float
 
 
@@ -102,7 +108,20 @@ class ModulesResponse(BaseModel):
     modules: List[str]
 
 
-# ----------------------------- FastAPI app -----------------------------
+class AssessmentAnalytics(BaseModel):
+    assessment_id: int
+    bins: List[int]            # length N+1 (edges, e.g., [0,10,...,100])
+    counts: List[int]          # length N
+    student_score: float
+    percentile: float
+    status: str
+    position_in_status: Optional[int] = None
+    group_size_in_status: Optional[int] = None
+
+
+# -------------------------------------------------
+# FastAPI app
+# -------------------------------------------------
 app = FastAPI(title="Intervarsity Backend", version="1.0.0")
 
 app.add_middleware(
@@ -119,14 +138,13 @@ def health():
     return {"ok": True}
 
 
-# ---- Students ----
+# ---------- Students ----------
 @app.get("/api/students/{student_id}/exists", response_model=ExistsResponse)
 def student_exists(student_id: str):
     try:
         sid = int(student_id)
     except ValueError:
         return ExistsResponse(exists=False)
-
     exists = (student_assessments["id_student"] == sid).any()
     return ExistsResponse(exists=bool(exists))
 
@@ -142,34 +160,22 @@ def student_assessments_table(student_id: str):
     if df.empty:
         return AssessmentsResponse(rows=[])
 
-    # Sort by id_assessment for stable display
     df = df.sort_values("id_assessment")
-
-    # Normalize date -> YYYY-MM-DD if the column exists
-    date_col = None
-    for candidate in ("date_submitted", "date_submitted ", "date_submited", "date"):
-        if candidate in df.columns:
-            date_col = candidate
-            break
 
     rows: List[AssessmentRow] = []
     for _, r in df.iterrows():
-        date_val = None
-        if date_col is not None and pd.notna(r[date_col]):
-            s = str(r[date_col])
-            # If it looks like a timestamp, slice to date
-            if "T" in s:
-                date_val = s[:10]
-            else:
-                # Try parse with pandas, then format
-                try:
-                    date_val = pd.to_datetime(s).strftime("%Y-%m-%d")
-                except Exception:
-                    date_val = s
+        # OULAD: date_submitted = days since module start
+        date_val: Optional[str] = None
+        if "date_submitted" in df.columns and pd.notna(r["date_submitted"]):
+            try:
+                date_val = f"Day {int(r['date_submitted'])}"
+            except Exception:
+                date_val = str(r["date_submitted"])
+
         rows.append(
             AssessmentRow(
                 id_assessment=int(r["id_assessment"]),
-                task=None,  # frontend can fall back to `Assessment {id_assessment}`
+                task=None,
                 date_submitted=date_val,
                 score=float(r["score"]),
             )
@@ -187,26 +193,21 @@ def student_summary(student_id: str):
 
     df = student_assessments.loc[student_assessments["id_student"] == sid].copy()
     if df.empty:
-        # No data — return zeros so frontend can handle gracefully
         return StudentSummary(
             studentId=str(student_id),
             average=0.0,
             status=assign_status(0.0),
-            predicted_next=PredictedNext(id_assessment=None, score=None),
+            predicted_next=PredictedNext(),
         )
 
-    # Overall average
     avg = float(np.round(df["score"].mean(), 1))
     status = assign_status(avg)
 
-    # Simple linear regression on (id_assessment -> score), needs at least 2 points
-    pred_id: Optional[int] = None
-    pred_score: Optional[float] = None
-
     model_df = df.dropna(subset=["score", "id_assessment"]).copy()
-    # Ensure ints for sorting and next id prediction
     model_df["id_assessment"] = model_df["id_assessment"].astype(int)
 
+    pred_id: Optional[int] = None
+    pred_score: Optional[float] = None
     if len(model_df) >= 2:
         X = model_df["id_assessment"].to_numpy().reshape(-1, 1)
         y = model_df["score"].to_numpy()
@@ -214,10 +215,8 @@ def student_summary(student_id: str):
             model = LinearRegression()
             model.fit(X, y)
             pred_id = int(model_df["id_assessment"].max()) + 1
-            pred_score = float(model.predict(np.array([[pred_id]])).item())
-            pred_score = round(pred_score, 2)
+            pred_score = float(round(model.predict(np.array([[pred_id]])).item(), 2))
         except Exception:
-            # Keep predicted as None on any regression issue
             pred_id, pred_score = None, None
 
     return StudentSummary(
@@ -230,7 +229,6 @@ def student_summary(student_id: str):
 
 @app.get("/api/students/{student_id}/modules", response_model=ModulesResponse)
 def student_completed_modules(student_id: str):
-    """Completed modules = registrations with no unregistration date."""
     try:
         sid = int(student_id)
     except ValueError:
@@ -247,7 +245,56 @@ def student_completed_modules(student_id: str):
     return ModulesResponse(count=len(mods), modules=mods)
 
 
-# Optional: run directly with `python backend.py`
+# ---------- Assessment analytics for Insights modal ----------
+@app.get("/api/assessments/{assessment_id}/analytics", response_model=AssessmentAnalytics)
+def assessment_analytics(assessment_id: int, student_id: int = Query(...)):
+    data = merged_df.loc[merged_df["id_assessment"] == assessment_id].dropna(subset=["score"])
+    if data.empty:
+        raise HTTPException(status_code=404, detail="Assessment not found or has no scores")
+
+    stu_row = data.loc[data["id_student"] == student_id]
+    if stu_row.empty:
+        raise HTTPException(status_code=404, detail="Student did not attempt this assessment")
+
+    student_score = float(stu_row.iloc[0]["score"])
+    scores = data["score"].to_numpy(dtype=float)
+    n = len(scores)
+
+    # Percentile (midrank for ties)
+    less = (scores < student_score).sum()
+    equal = (scores == student_score).sum()
+    percentile = 100.0 * (less + 0.5 * equal) / n
+
+    data = data.copy()
+    data["status"] = data["score"].apply(assign_status)
+    student_status = assign_status(student_score)
+    same_status = data.loc[data["status"] == student_status].sort_values("score", ascending=False)
+    position_in_status = None
+    group_size_in_status = None
+    if not same_status.empty:
+        same_status = same_status.reset_index(drop=True)
+        idx = same_status.index[same_status["id_student"] == student_id]
+        if len(idx) > 0:
+            position_in_status = int(idx[0]) + 1
+            group_size_in_status = int(len(same_status))
+
+    # Histogram (0..100) → 10 bins
+    bin_edges = np.linspace(0, 100, 11)
+    counts, edges = np.histogram(scores, bins=bin_edges)
+
+    return AssessmentAnalytics(
+        assessment_id=int(assessment_id),
+        bins=[int(x) for x in edges.tolist()],
+        counts=[int(c) for c in counts.tolist()],
+        student_score=student_score,
+        percentile=round(float(percentile), 1),
+        status=student_status,
+        position_in_status=position_in_status,
+        group_size_in_status=group_size_in_status,
+    )
+
+
+# Optional: run with `python backend.py`
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend:app", reload=True, port=8000)
