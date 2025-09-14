@@ -54,3 +54,6 @@
 
 🌍 Expanded Analytics – Compare performance across modules, faculties, or even universities (with anonymized data)."
 ```
+## 🎥 Demo Video
+To view the demo video, please access the link below:  
+[Demo Video Link](https://drive.google.com/file/d/1zhgy_mvp6kmrYkZHAWpUpsoMQQfD7b-v/view?usp=drive_link)
