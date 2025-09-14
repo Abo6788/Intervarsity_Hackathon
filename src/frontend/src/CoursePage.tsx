@@ -5,6 +5,7 @@ import {
   getStudentAssessments,
   getStudentSummary,
   getAssessmentAnalytics,
+  getStudentRank,
 } from "./api";
 
 type Props = { studentId: string };
@@ -40,6 +41,12 @@ export default function CoursePage({ studentId }: Props) {
   const [avg, setAvg] = useState<number>(0);
   const [predScore, setPredScore] = useState<number | null>(null);
   const [predId, setPredId] = useState<number | null>(null);
+
+  // Rank state
+  const [rankPos, setRankPos] = useState<number | null>(null);
+  const [rankTotal, setRankTotal] = useState<number | null>(null);
+  const [rankPct, setRankPct] = useState<number | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -56,9 +63,10 @@ export default function CoursePage({ studentId }: Props) {
       try {
         setLoading(true);
         setErr(null);
-        const [assessments, summary] = await Promise.all([
+        const [assessments, summary, rank] = await Promise.all([
           getStudentAssessments(studentId),
           getStudentSummary(studentId),
+          getStudentRank(studentId),
         ]);
         if (!cancelled) {
           setRows(assessments);
@@ -71,6 +79,9 @@ export default function CoursePage({ studentId }: Props) {
               ? Number(summary.predicted_next.id_assessment)
               : null
           );
+          setRankPos(rank.position);
+          setRankTotal(rank.total);
+          setRankPct(rank.percentile);
         }
       } catch {
         if (!cancelled) setErr("Failed to load student data.");
@@ -78,9 +89,7 @@ export default function CoursePage({ studentId }: Props) {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [studentId]);
 
   const { label: statusLabel, type: statusType } = overallStatus(avg);
@@ -117,6 +126,10 @@ export default function CoursePage({ studentId }: Props) {
                 <div className="avg-label">Predicted Next</div>
                 <div className="avg-value">—</div>
               </div>
+              <div className="avg-card">
+                <div className="avg-label">Overall Position</div>
+                <div className="avg-value">—</div>
+              </div>
               <div className="status overall possible">Loading…</div>
             </div>
           </header>
@@ -144,6 +157,10 @@ export default function CoursePage({ studentId }: Props) {
                 <div className="avg-label">Predicted Next</div>
                 <div className="avg-value">—</div>
               </div>
+              <div className="avg-card">
+                <div className="avg-label">Overall Position</div>
+                <div className="avg-value">—</div>
+              </div>
               <div className="status overall at-risk">Error</div>
             </div>
           </header>
@@ -154,6 +171,10 @@ export default function CoursePage({ studentId }: Props) {
   }
 
   const overallBadge = badgeFor(avg);
+  const rankTopText =
+    rankPos != null && rankTotal != null && rankPct != null
+      ? `#${rankPos} / ${rankTotal} • Top ${Math.max(0, Math.min(100, (100-rankPct))).toFixed(1)}%`
+      : "—";
 
   return (
     <div className="course-page">
@@ -178,12 +199,18 @@ export default function CoursePage({ studentId }: Props) {
               </div>
             </div>
 
-            {/* Predicted Next card */}
+            {/* Predicted Next */}
             <div className="avg-card" title={predId ? `Assessment ${predId}` : ""}>
               <div className="avg-label">Predicted Next</div>
               <div className="avg-value">
                 {predScore != null ? `${predScore}%` : "—"}
               </div>
+            </div>
+
+            {/* Overall Position (standout with emoji) */}
+            <div className="avg-card" title="Rank among peers in your modules">
+              <div className="avg-label">Overall Position</div>
+              <div className="avg-value">🏆 {rankTopText}</div>
             </div>
 
             {/* Status pill */}
@@ -262,7 +289,7 @@ export default function CoursePage({ studentId }: Props) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "48px 16px", // top/bottom breathing room
+            padding: "48px 16px", // space top/bottom
             zIndex: 999,
           }}
         >
@@ -279,18 +306,9 @@ export default function CoursePage({ studentId }: Props) {
               boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 8,
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{modalTitle}</h2>
-              <button className="btn" onClick={() => setShowModal(false)}>
-                Close
-              </button>
+              <button className="btn" onClick={() => setShowModal(false)}>Close</button>
             </div>
 
             {fetchingAnalytics && <p>Loading analytics…</p>}
@@ -303,16 +321,12 @@ export default function CoursePage({ studentId }: Props) {
                   counts={analytics.counts}
                   studentScore={analytics.student_score}
                 />
-
                 <div style={{ marginTop: 12, fontSize: 14, color: "#0f172a" }}>
                   <strong>Student score:</strong> {analytics.student_score}% &nbsp;|&nbsp;
                   <strong>Percentile:</strong> {analytics.percentile} &nbsp;|&nbsp;
                   <strong>Status:</strong> {analytics.status}
                   {analytics.position_in_status && analytics.group_size_in_status ? (
-                    <>
-                      &nbsp;|&nbsp; <strong>Position in {analytics.status} group:</strong>{" "}
-                      {analytics.position_in_status} / {analytics.group_size_in_status}
-                    </>
+                    <> &nbsp;|&nbsp; <strong>Position in {analytics.status} group:</strong> {analytics.position_in_status} / {analytics.group_size_in_status} </>
                   ) : null}
                 </div>
               </>
@@ -335,58 +349,26 @@ function Histogram({
   studentScore: number;
 }) {
   const max = Math.max(...counts, 1);
-  // Find the bin index where the studentScore falls
   let idx = 0;
   for (let i = 0; i < counts.length; i++) {
     const left = bins[i];
     const right = bins[i + 1];
     if (i === counts.length - 1) {
-      if (studentScore >= left && studentScore <= right) {
-        idx = i;
-        break;
-      }
+      if (studentScore >= left && studentScore <= right) { idx = i; break; }
     }
-    if (studentScore >= left && studentScore < right) {
-      idx = i;
-      break;
-    }
+    if (studentScore >= left && studentScore < right) { idx = i; break; }
   }
 
   return (
     <div style={{ marginTop: 8 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: 6,
-          height: 200,
-          padding: "12px 8px",
-          border: "1px solid #e5e7eb",
-          borderRadius: 8,
-        }}
-      >
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 200, padding: "12px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}>
         {counts.map((c, i) => {
           const h = Math.round((c / max) * 170) + 8;
           const isStudentBin = i === idx;
           return (
-            <div
-              key={i}
-              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
-              title={`${bins[i]}–${bins[i + 1]}: ${c}`}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  height: h,
-                  background: isStudentBin ? "#0f172a" : "#22c55e",
-                  opacity: isStudentBin ? 1 : 0.9,
-                  borderRadius: 6,
-                  border: "1px solid #e5e7eb",
-                }}
-              />
-              <div style={{ fontSize: 12, color: "#64748b" }}>
-                {bins[i]}–{bins[i + 1]}
-              </div>
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }} title={`${bins[i]}–${bins[i + 1]}: ${c}`}>
+              <div style={{ width: "100%", height: h, background: isStudentBin ? "#0f172a" : "#22c55e", opacity: isStudentBin ? 1 : 0.9, borderRadius: 6, border: "1px solid #e5e7eb" }} />
+              <div style={{ fontSize: 12, color: "#64748b" }}>{bins[i]}–{bins[i + 1]}</div>
             </div>
           );
         })}

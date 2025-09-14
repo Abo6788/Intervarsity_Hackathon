@@ -1,12 +1,11 @@
-// Minimal API client for the frontend.
-// Set VITE_API_BASE in .env if you need a different base.
+// API base; set VITE_API_BASE in a .env to override
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
 /* ------------------------- Types ------------------------- */
 export type AssessmentRow = {
   id_assessment: number;
-  task: string;            // frontend label, fallback derived if backend returns null
-  date_submitted: string;  // e.g., "Day 42"
+  task: string;            // derived if backend sends null
+  date_submitted: string;  // "Day N"
   score: number;           // 0..100
 };
 
@@ -22,13 +21,21 @@ export type StudentSummary = {
 
 export type AssessmentAnalytics = {
   assessment_id: number;
-  bins: number[];         // edges
-  counts: number[];       // counts per bin
+  bins: number[];
+  counts: number[];
   student_score: number;
   percentile: number;
   status: string;
   position_in_status?: number | null;
   group_size_in_status?: number | null;
+};
+
+export type StudentRank = {
+  position: number;       // 1 = best
+  total: number;
+  percentile: number;     // higher = better
+  student_average: number;
+  modules: string[];
 };
 
 /* ------------------------- Helpers ------------------------- */
@@ -95,4 +102,14 @@ export async function getAssessmentAnalytics(assessmentId: number, studentId: st
     throw new Error(`analytics: HTTP ${res.status} ${res.statusText} ${text ? "- " + text : ""}`);
   }
   return (await res.json()) as AssessmentAnalytics;
+}
+
+export async function getStudentRank(studentId: string): Promise<StudentRank> {
+  const url = `${BASE}/students/${encodeURIComponent(studentId)}/rank`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`rank: HTTP ${res.status} ${res.statusText} ${text ? "- " + text : ""}`);
+  }
+  return (await res.json()) as StudentRank;
 }

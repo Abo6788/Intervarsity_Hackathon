@@ -10,14 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sklearn.linear_model import LinearRegression
 
-
 # -------------------------------------------------
 # Config
 # -------------------------------------------------
-FRONTEND_ORIGIN = "http://localhost:5173"  # Vite dev
+FRONTEND_ORIGIN = "http://localhost:5173"  # adjust if needed
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
-# Prefer repo-relative CSVs; fall back to your absolute paths
+# Prefer repo-relative CSVs; fall back to your absolute Windows paths
 REL_STUDENT_ASSESSMENTS = ASSETS_DIR / "studentAssessment.csv"
 REL_STUDENT_REGISTRATION = ASSETS_DIR / "studentRegistration.csv"
 REL_STUDENT_INFO = ASSETS_DIR / "studentInfo.csv"
@@ -45,7 +44,7 @@ student_info: pd.DataFrame = _load_csv(REL_STUDENT_INFO, ABS_STUDENT_INFO)
 for df in (student_assessments, student_registration, student_info):
     df.columns = [c.strip() for c in df.columns]
 
-# Extra merged view (for analytics / status)
+# Extra merged view (for analytics / rank)
 merged_df = pd.merge(
     student_assessments,
     student_info[["id_student", "code_module", "code_presentation"]],
@@ -119,10 +118,18 @@ class AssessmentAnalytics(BaseModel):
     group_size_in_status: Optional[int] = None
 
 
+class RankResponse(BaseModel):
+    position: int          # 1 = best
+    total: int
+    percentile: float      # higher = better
+    student_average: float
+    modules: List[str]
+
+
 # -------------------------------------------------
 # FastAPI app
 # -------------------------------------------------
-app = FastAPI(title="Intervarsity Backend", version="1.0.0")
+app = FastAPI(title="Intervarsity Backend", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -291,6 +298,59 @@ def assessment_analytics(assessment_id: int, student_id: int = Query(...)):
         status=student_status,
         position_in_status=position_in_status,
         group_size_in_status=group_size_in_status,
+    )
+
+
+# ---------- Overall rank among peers in same modules ----------
+@app.get("/api/students/{student_id}/rank", response_model=RankResponse)
+def student_rank(student_id: str):
+    try:
+        sid = int(student_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="student_id must be an integer")
+
+    stu_rows = merged_df.loc[
+        (merged_df["id_student"] == sid) & (merged_df["score"].notna())
+    ].copy()
+    if stu_rows.empty:
+        raise HTTPException(status_code=404, detail="No assessments found for this student")
+
+    if "code_module" not in stu_rows.columns:
+        raise HTTPException(status_code=500, detail="code_module column missing in data")
+
+    modules = sorted(set(stu_rows["code_module"].dropna().astype(str).tolist()))
+    if not modules:
+        raise HTTPException(status_code=404, detail="No module info for this student")
+
+    peers = merged_df.loc[
+        (merged_df["code_module"].isin(modules)) & (merged_df["score"].notna())
+    ][["id_student", "score"]].copy()
+
+    per_student_avg = peers.groupby("id_student", as_index=False)["score"].mean()
+    per_student_avg.rename(columns={"score": "avg"}, inplace=True)
+
+    per_student_avg.sort_values(["avg", "id_student"], ascending=[False, True], inplace=True)
+    per_student_avg.reset_index(drop=True, inplace=True)
+
+    total = int(len(per_student_avg))
+    row = per_student_avg.loc[per_student_avg["id_student"] == sid]
+    if row.empty:
+        raise HTTPException(status_code=404, detail="Student not found in peer set")
+
+    student_avg = float(round(row.iloc[0]["avg"], 1))
+    position = int(row.index[0]) + 1
+
+    avg_vals = per_student_avg["avg"].to_numpy(dtype=float)
+    less = int((avg_vals < student_avg).sum())
+    eq = int((avg_vals == student_avg).sum())
+    percentile = 100.0 * (less + 0.5 * eq) / max(total, 1)
+
+    return RankResponse(
+        position=position,
+        total=total,
+        percentile=round(percentile, 1),
+        student_average=student_avg,
+        modules=modules,
     )
 
 
