@@ -21,11 +21,11 @@ This document lists all **third-party repositories, modules, libraries, framewor
 
 ---
 
-## 🌐 APIs & Services
-| Name          | Link / Docs                                   | Author(s)      | Usage                             |
-|---------------|------------------------------------|----------------|--------------------------------------------|
-None              | -                                                  | -                     | This project does not use external APIs |
----
+## 🌐 APIs & Services  
+| Name          | Link / Docs                                   | Author(s)      | Usage                             |  
+|---------------|-----------------------------------------------|----------------|-----------------------------------|  
+| **OpenAI GPT** | [https://openai.com](https://openai.com)     | OpenAI         | Used for troubleshooting, debugging assistance, and development guidance throughout the project |  
+| None          | -                                             | -              | Other than OpenAI, this project does not use external APIs |  
 
 ## 📊 Datasets
 | Name          | Source                              | Usage                             |
