@@ -41,8 +41,8 @@ Example Student numbers to use: 28400, 11391, 57506
 // TODO: Link your demo video and PowerPoint here
 ```
 Check out the Demos: 
-- [Demo Video](../demo/demo.mp4)
-- [Demo Presentation](../demo/demo.pptx)
+- [Demo Video](../demo/Intervarsity_Hackathon_Video_Demo.mp4)
+- [Demo Presentation](../demo/Student-Performance-Analytics.pptx)
 
 ## 📌 Notes
 ``` c
